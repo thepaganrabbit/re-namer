@@ -76,7 +76,6 @@ if os.path.isfile("paths.json"):
 
 # write URLS to file
 
-
 def write_urls():
     to_url = to_input.get()
     fr_url = fr_input.get()
@@ -120,7 +119,6 @@ def get_location_files():
     to_fro = get_to_fro()
     simple_files = []
     for root, dirs, files in os.walk(to_fro['from_path']):
-        # sile_total = len(files)
         for file in files:
             simple_files.append(os.path.basename(file))
             folder_files.append(str(os.path.basename(file)))
@@ -143,7 +141,7 @@ load_btn.grid(row=7, column=1)
 
 selectionvar = StringVar(value=folder_files)
 l_box = tk.Listbox(root, listvariable=selectionvar, width=20)
-l_box.grid(row=8, column=1, rowspan=4)
+l_box.grid(row=8, column=1, rowspan=4, padx=24)
 
 # next and renamer input
 
@@ -166,10 +164,12 @@ def pop_next_name():
     arr = get_arr()
     base = get_to_fro()['from_path']
     image1 = Image.open(str(base + '/' + arr[0]))
+    img_sized = 750,480
+    image1.thumbnail(img_sized, Image.Resampling.LANCZOS)
     test = ImageTk.PhotoImage(image1)
-    label1 = tk.Label(image=test, width=220, height=220)
+    label1 = tk.Label(image=test, width=440, height=300)
     label1.image = test
-    label1.grid(row=7, column=5, columnspan=3, rowspan=4)
+    label1.grid(row=4, column=7, columnspan=5, rowspan=5)
     to_input.focus()
 
 nxt_btn = tk.Button(root,text="pop", width=20, command=pop_next_name)
