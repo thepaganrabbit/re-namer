@@ -5,50 +5,49 @@ import json
 import csv
 import os
 import os.path
+import shutil
 
 root = tk.Tk()
 
 root.geometry('1140x480')
 
-fr_url = ''
-to_url = ''
+# fr_url = ''
+# to_url = ''
 
-title = tk.Label(root, text="Image Renamer", font=('Courier', 24))
-title.grid(row=1, column=1, columnspan=6)
+# title = tk.Label(root, text="Image Renamer", font=('Courier', 24))
+# title.grid(row=1, column=1, columnspan=6)
 
 # FROM INPUT
 
-from_label = tk.Label(root, text="From", font=('Courier', 14))
-from_label.grid(row=2, column=1)
+# Z
 
-
-def get_from_url(event=None):
-    fr_url = fr_input.get()
-    print(fr_url)
+# def get_from_url(event=None):
+#     fr_url = fr_input.get()
+#     print(fr_url)
 
 # Handle button press to get path vie dialog
 
 
-def open_from_file_dialog():
-    fr_url = filedialog.askdirectory()
-    fr_input.insert(0, fr_url)
-    print(fr_url)
+# def open_from_file_dialog():
+#     fr_url = filedialog.askdirectory()
+#     fr_input.insert(0, fr_url)
+#     print(fr_url)
 
 
-fr_input = tk.Entry(root, width=40)
-fr_input.grid(row=2, column=2, columnspan=3)
+# fr_input = tk.Entry(root, width=40)
+# fr_input.grid(row=2, column=2, columnspan=3)
 
-# handle enter button for submission
-fr_input.bind("<Return>", get_from_url)
+# # handle enter button for submission
+# fr_input.bind("<Return>", get_from_url)
 
-btn_fr = tk.Button(root, text="GET", command=open_from_file_dialog)
-btn_fr.grid(row=2, column=5)
+# btn_fr = tk.Button(root, text="GET", command=open_from_file_dialog)
+# btn_fr.grid(row=2, column=5)
 
 # TO INPUT
 
 
-def get_to_url(event=None):
-    to_input.get()
+# def get_to_url(event=None):
+#     to_input.get()
 
 # Handle button press to get path vie dialog
 
@@ -153,23 +152,45 @@ def get_arr():
             file_arr.append(a[0])
     return file_arr
 
+img_disp_label = ""
+img_disp_label.grid(row=10, column=2)
+img_label = tk.Label()
+
+def rename_and_move(event):
+    if event.keysym == 'Return':
+        base = get_to_fro()
+        img_name = img_label.cget('text')
+        to = str(base['from_path'] + '/' + to_input.get())
+        origin = str(base['from_path'] + '/' + img_name)
+        os.rename(origin, to)
+        shutil.move(to, base['to_path'])
+        to_input.delete(0, tk.END)
+        to_input.config(state='normal')
+        get_location_files()
+        pop_next_name()
+        
+    
+
 to_input = tk.Entry(root, width=40)
 to_input.grid(row=7, column=2, padx=20)
+to_input.bind('<KeyPress>', rename_and_move)
 
 rnme_btn = tk.Button(root,text="Rename", width=20)
 rnme_btn.grid(row=9, column=2)
 
 
+
 def pop_next_name():
     arr = get_arr()
     base = get_to_fro()['from_path']
+    img_disp_label = str(arr[0])
     image1 = Image.open(str(base + '/' + arr[0]))
     img_sized = 750,480
     image1.thumbnail(img_sized, Image.Resampling.LANCZOS)
     test = ImageTk.PhotoImage(image1)
-    label1 = tk.Label(image=test, width=440, height=300)
-    label1.image = test
-    label1.grid(row=4, column=7, columnspan=5, rowspan=5)
+    img_label.config(text=arr[0],image=test, width=440, height=300)
+    img_label.image = test
+    img_label.grid(row=4, column=7, columnspan=5, rowspan=5)
     to_input.focus()
 
 nxt_btn = tk.Button(root,text="pop", width=20, command=pop_next_name)
