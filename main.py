@@ -6,205 +6,184 @@ import csv
 import os
 import os.path
 import shutil
-
-root = tk.Tk()
-
-root.geometry('1140x480')
-
-# fr_url = ''
-# to_url = ''
-
-# title = tk.Label(root, text="Image Renamer", font=('Courier', 24))
-# title.grid(row=1, column=1, columnspan=6)
-
-# FROM INPUT
-
-# Z
-
-# def get_from_url(event=None):
-#     fr_url = fr_input.get()
-#     print(fr_url)
-
-# Handle button press to get path vie dialog
+from functools import partial
 
 
-# def open_from_file_dialog():
-#     fr_url = filedialog.askdirectory()
-#     fr_input.insert(0, fr_url)
-#     print(fr_url)
+class Renamer:
 
+    def __init__(self, winSize, title="Renamer"):
+        self.filename = './filenamestemp.csv'
+        self.paths_filename = "./paths.json"
+        self.to_or_fro = {
+            "from_path": "",
+            "to_path": ""
+        }
+        self.current_file = ''
+        self.isUnlocked = [False, False]
+        self.folder_files = []
+        self.root = tk.Tk()
+        self.root.geometry(winSize)
+        self.title = tk.Label(self.root, text=title, font=('Courier', 24))
+        self.from_label = tk.Label(
+            self.root, text="From", font=('Courier', 14))
+        self.to_label = tk.Label(self.root, text="To", font=('Courier', 14))
+        self.from_input = tk.Entry(self.root, width=40)
+        self.from_button = tk.Button(
+            self.root, text="GET", command=partial(self.open_file_dialog, 1))
+        self.to_input = tk.Entry(self.root, width=40)
+        self.to_button = tk.Button(
+            self.root, text="GET", command=partial(self.open_file_dialog, 2))
+        self.write_button = tk.Button(self.root,
+                                      text="Write",
+                                      command=self.write_urls,
+                                      width=40,
+                                      background="blue",
+                                      foreground='white',
+                                      height=2,
+                                      padx=20)
+        self.load_button = tk.Button(
+            self.root, text="LOAD", command=self.load_files)
+        self.file_listbox = tk.Listbox(self.root, width=20)
+        self.rename_input = tk.Entry(self.root, width=40)
+        self.rename_label = tk.Label(self.root)
+        self.nex_button = tk.Button(
+            self.root, text="pop", width=20, command=self.pop_next_name)
+        self.image_label = tk.Label(self.root)
+        self.rename_input.bind('<KeyPress>', self.rename_and_move)
+        self.defaults()
 
-# fr_input = tk.Entry(root, width=40)
-# fr_input.grid(row=2, column=2, columnspan=3)
-
-# # handle enter button for submission
-# fr_input.bind("<Return>", get_from_url)
-
-# btn_fr = tk.Button(root, text="GET", command=open_from_file_dialog)
-# btn_fr.grid(row=2, column=5)
-
-# TO INPUT
-
-
-# def get_to_url(event=None):
-#     to_input.get()
-
-# Handle button press to get path vie dialog
-
-
-def open_to_file_dialog():
-    to_url = filedialog.askdirectory()
-    to_input.insert(0, to_url)
-
-
-to_label = tk.Label(root, text="To", font=('Courier', 14))
-to_label.grid(row=2, column=7, pady=15, padx=20)
-
-to_input = tk.Entry(root, width=40)
-to_input.grid(row=2, column=8, columnspan=3)
-
-btn_to = tk.Button(root, text="GET", command=open_to_file_dialog)
-btn_to.grid(row=2, column=11)
-
-if os.path.isfile("paths.json"):
-     with open("./paths.json", 'r') as pts:
-        rt_pt = json.loads(pts.read())
-        fr_input.insert(0, rt_pt['from_path'])
-        to_input.insert(0, rt_pt['to_path'])
-        pts.close()
-
-# write URLS to file
-
-def write_urls():
-    to_url = to_input.get()
-    fr_url = fr_input.get()
-    with open('./paths.json', 'w') as writer:
-        if len(fr_url) > 0 and len(to_url) > 0:
-            data = {
-                "from_path": fr_url,
-                "to_path": to_url
-            }
-            writer.write(json.dumps(data))
+    def open_file_dialog(self, tf):
+        if tf == 1:
+            from_url = filedialog.askdirectory()
+            self.from_input.insert(0, from_url)
         else:
+            to_url = filedialog.askdirectory()
+            self.to_input.insert(0, to_url)
+
+    def placements(self):
+        self.from_input.grid(row=2, column=2, columnspan=3)
+        self.title.grid(row=1, column=1, columnspan=6)
+        self.from_label.grid(row=2, column=1)
+        self.from_button.grid(row=2, column=5)
+        self.to_label.grid(row=2, column=7, pady=15, padx=20)
+        self.to_input.grid(row=2, column=8, columnspan=3)
+        self.to_button.grid(row=2, column=11)
+        self.write_button.grid(row=4, column=2, pady=20)
+        self.load_button.grid(row=7, column=1)
+        self.file_listbox.grid(row=8, column=1, rowspan=4, padx=24)
+        self.nex_button.grid(row=8, column=2)
+        self.image_label.grid(row=4, column=7, columnspan=5, rowspan=5)
+        self.rename_input.grid(row=7, column=2, padx=20)
+        self.rename_label.grid(row=9, column=2)
+
+    def defaults(self):
+        if os.path.isfile(self.paths_filename):
+            with open(self.paths_filename, 'r') as pts:
+                rt_pt = json.loads(pts.read())
+                self.to_or_fro = rt_pt
+                self.from_input.insert(0, rt_pt['from_path'])
+                self.to_input.insert(0, rt_pt['to_path'])
+                pts.close()
+        if os.path.isfile(self.filename):
+            self.get_location_files()
+        if not os.path.isfile(self.filename):
+            with open(self.filename, 'w') as cf:
+                cf.write('')
+                cf.close()
+        if not os.path.isfile(self.paths_filename):
+            with open(self.paths_filename, 'w') as cf:
+                cf.write('\{\}')
+                cf.close()
+        if len(self.folder_files) > 0:
+            for file in self.folder_files:
+                self.file_listbox.insert(0, file)
+
+    def write_urls(self):
+        self.to_url = self.to_input.get()
+        self.from_url = self.from_input.get()
+        with open(self.paths_filename, 'w') as writer:
+            if len(self.from_url) > 0 and len(self.to_url) > 0:
+                data = {
+                    "from_path": self.from_url,
+                    "to_path": self.to_url
+                }
+                writer.write(json.dumps(data))
+            else:
+                writer.close()
+                return
             writer.close()
-            return
 
+    def get_to_fro(self):
+        with open("paths.json", 'r') as paths:
+            self.get_to_fro = json.load(paths)
+            paths.close()
 
-btn_write = tk.Button(root,
-                      text="Write",
-                      command=write_urls,
-                      width=40,
-                      background="blue",
-                      foreground='white',
-                      height=2,
-                      padx=20)
-btn_write.grid(row=4, column=2, pady=20)
+    def get_location_files(self):
+        for root, dirs, files in os.walk(self.to_or_fro['from_path']):
+            for file in files:
+                self.folder_files.append(str(os.path.basename(file)))
 
+        with open(self.filename, 'w') as csv_file:
+            writer = csv.writer(csv_file, delimiter=',')
+            for line in self.folder_files:
+                writer.writerow(line.split(r"\.(png|jpeg|jpg|gif|webm)"))
+            csv_file.close()
 
-# list
-filename = './filenamestemp.csv'
+    def get_files_from_csv(self):
+        with open(self.filename, 'r') as fol_files:
+            arr = csv.reader(fol_files)
+            for a in arr:
+                self.folder_files.append(a[0])
 
-folder_files = []
+    def load_files(self):
+        self.get_location_files()
+        for file in self.folder_files:
+            self.file_listbox.insert(0, file)
 
-def get_to_fro(): 
-    to_fro = None
-    with open("paths.json", 'r') as paths:
-        to_fro = json.load(paths)
-        paths.close()
-    return to_fro
+    def check_if_ready(self):
+        if len(self.folder_files) > 0 and len(self.to_or_fro['from_path']) > 5:
+            return True
+        else:
+            return False
+
+    def clean_get_files(self): 
+        if self.check_if_ready():
+            self.get_location_files()
+
+    def pop_next_name(self):
+        if self.check_if_ready():
+            self.clean_get_files()
+            self.current_file = self.folder_files[0]
+            img_sized = 750,480
+            image = Image.open(str(self.to_or_fro['from_path'] + '/' + self.folder_files[0]))
+            image.thumbnail(img_sized, Image.Resampling.LANCZOS)
+            photo_image = ImageTk.PhotoImage(image)
+            self.image_label.config(text=self.current_file, image=photo_image, width=440, height=300)
+            self.rename_label.config(text=self.current_file)
+            self.image_label.image = photo_image
+            self.rename_input.focus()
+            
+    def rename_and_move(self, event):
+        if event.keysym == 'Return':
+            ending = self.current_file.split(".")
+            end_len = len(ending) - 1
+            to = str(self.to_or_fro['from_path'] + '/' + self.rename_input.get() + '.' + ending[end_len])
+            origin = str(self.to_or_fro['from_path'] + '/' + self.current_file)
+            os.rename(origin, to)
+            shutil.move(to, self.to_or_fro['to_path'])
+            self.current_file = ''
+            self.folder_files = []
+            self.load_files()
+            self.pop_next_name()
+            self.rename_input.delete(0, tk.END)
+            self.rename_input.focus()
     
-
-def get_location_files():
-    to_fro = get_to_fro()
-    simple_files = []
-    for root, dirs, files in os.walk(to_fro['from_path']):
-        for file in files:
-            simple_files.append(os.path.basename(file))
-            folder_files.append(str(os.path.basename(file)))
-    for f in simple_files:
-        l_box.insert(0, f)
-    if not os.path.isfile(filename):
-        with open(filename, 'w') as cf:
-            cf.write('')
-            cf.close()
-
-    with open(filename, 'w') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        for line in folder_files:
-            writer.writerow(line.split(r"\.(png|jpeg|jpg|gif|webm)"))
-        csv_file.close()
-
-
-load_btn = tk.Button(root, text="LOAD", command=get_location_files)
-load_btn.grid(row=7, column=1)
-
-selectionvar = StringVar(value=folder_files)
-l_box = tk.Listbox(root, listvariable=selectionvar, width=20)
-l_box.grid(row=8, column=1, rowspan=4, padx=24)
-
-# next and renamer input
-
-def get_arr():
-    file_arr = []
-    with open(filename, 'r') as fol_files:
-        arr = csv.reader(fol_files)
-        for a in arr:
-            file_arr.append(a[0])
-    return file_arr
-
-img_disp_label = ""
-img_disp_label.grid(row=10, column=2)
-img_label = tk.Label()
-
-def rename_and_move(event):
-    if event.keysym == 'Return':
-        base = get_to_fro()
-        img_name = img_label.cget('text')
-        to = str(base['from_path'] + '/' + to_input.get())
-        origin = str(base['from_path'] + '/' + img_name)
-        os.rename(origin, to)
-        shutil.move(to, base['to_path'])
-        to_input.delete(0, tk.END)
-        to_input.config(state='normal')
-        get_location_files()
-        pop_next_name()
+    def run(self):
+        self.root.mainloop()
         
-    
+        
+r_name = Renamer('1140x480','Renamer')
 
-to_input = tk.Entry(root, width=40)
-to_input.grid(row=7, column=2, padx=20)
-to_input.bind('<KeyPress>', rename_and_move)
+r_name.placements()
 
-rnme_btn = tk.Button(root,text="Rename", width=20)
-rnme_btn.grid(row=9, column=2)
-
-
-
-def pop_next_name():
-    arr = get_arr()
-    base = get_to_fro()['from_path']
-    img_disp_label = str(arr[0])
-    image1 = Image.open(str(base + '/' + arr[0]))
-    img_sized = 750,480
-    image1.thumbnail(img_sized, Image.Resampling.LANCZOS)
-    test = ImageTk.PhotoImage(image1)
-    img_label.config(text=arr[0],image=test, width=440, height=300)
-    img_label.image = test
-    img_label.grid(row=4, column=7, columnspan=5, rowspan=5)
-    to_input.focus()
-
-nxt_btn = tk.Button(root,text="pop", width=20, command=pop_next_name)
-nxt_btn.grid(row=8, column=2)
-
-if os.path.isfile(filename):
-    with open(filename, 'r') as lst:
-        reader = csv.reader(lst)
-        csv_list = list(reader)
-        for pth in csv_list:
-            l_box.insert(0, pth)
-        lst.close()
-
-if (len(folder_files) > 0):
-    print(folder_files)
-
-root.mainloop()
+r_name.run()
